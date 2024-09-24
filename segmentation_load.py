@@ -24,7 +24,11 @@ def plot_single_frame(single_frame_arr: np.ndarray,
 
 if __name__ == '__main__':
     
-    SOURCE_H5_FRM_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\dark_01\dark_01__frm.h5"
+    #-----------------------------------
+    #---------IMPORTING-----------------
+    #-----------------------------------
+
+    SOURCE_H5_FRM_FILE = r"C:\VS_CODE\outgoing\dark_01\dark_01__frm.h5"
 
     all_frames = import_h5frm_to_nparr(SOURCE_H5_FRM_FILE)
 
@@ -32,10 +36,14 @@ if __name__ == '__main__':
     # For example, if there were 180 images in the dataset, each measured on a 1920x1920 16-bit detector, 
     # it would be of shape (180,1920,1920) with integer vals ranging from 0 to 65535.
 
-    SELECTED_FRAME = 0
-    OUTPUT_PNG_IMG_FILE = r'C:\Users\piotr\Documents\VS_Code\laue_prep\test.png'
+    #-----------------------------------
+    #---------PLOTTING------------------
+    #-----------------------------------
 
-    first_frame = all_frames[SELECTED_FRAME]
-    plot_single_frame(single_frame_arr=first_frame,
+    SELECTED_FRAME = 4
+    OUTPUT_PNG_IMG_FILE = f'{SELECTED_FRAME}_frame_test.png'
+
+    selected_frame = all_frames[SELECTED_FRAME]
+    plot_single_frame(single_frame_arr=selected_frame,
                       out_png_path=OUTPUT_PNG_IMG_FILE)
 

@@ -43,7 +43,7 @@ def import_h5mono_to_nparr(src_mono_path: os.PathLike) -> tuple[np.ndarray]:
         intensities_mono = np.array(mono_h5['mono']['F_squared_meas'])
 
     return(vectors_mono, intensities_mono)
-def fill_mono_symmetry_equivs(vectors_mono: np.ndarray, intensities_mono: np.ndarray, hkl_equivs: tuple[tuple[int]]) -> tuple[np.ndarray]:
+def fill_mono_symmetry_equivs(vectors_mono: np.ndarray, intensities_mono: np.ndarray, hkl_equivs: tuple[tuple[int]], remove_dups: bool=True) -> tuple[np.ndarray]:
 
     #why we do this: http://pd.chem.ucl.ac.uk/pdnn/symm2/multj.htm
 
@@ -60,18 +60,20 @@ def fill_mono_symmetry_equivs(vectors_mono: np.ndarray, intensities_mono: np.nda
 
 
     #finally, some of these transformations will give duplicate reflections, so we remove them (and the respective intensities)
-    vectors_mono_full_no_dups = []
-    intensites_mono_full_no_dups = []
+    if remove_dups:
+        vectors_mono_full_no_dups = []
+        intensites_mono_full_no_dups = []
 
-    for i, vector in enumerate(vectors_mono_full):
-        if any(all(vector == vector_no_dups) for vector_no_dups in vectors_mono_full_no_dups):
-            continue
-        else:
-            vectors_mono_full_no_dups.append(vector)
-            intensites_mono_full_no_dups.append(intensites_mono_full[i])
+        for i, vector in enumerate(vectors_mono_full):
+            if any(all(vector == vector_no_dups) for vector_no_dups in vectors_mono_full_no_dups):
+                continue
+            else:
+                vectors_mono_full_no_dups.append(vector)
+                intensites_mono_full_no_dups.append(intensites_mono_full[i])
+        return(np.array(vectors_mono_full_no_dups), np.array(intensites_mono_full_no_dups))
+    else:
+        return(np.array(vectors_mono_full), np.array(intensites_mono_full))
 
-
-    return(np.array(vectors_mono_full_no_dups), np.array(intensites_mono_full_no_dups))
 def import_h5expt_to_nparr(src_expt_path: os.PathLike) -> tuple[np.ndarray]:
 
     with h5py.File(src_expt_path, 'r') as expt_h5:
@@ -134,43 +136,31 @@ def import_xxx_vec_data(xxx_file_path):
 
     return(xxx_expt_vec, xxx_mono_vec)
 
-
-if __name__ == '__main__':
+def main_export(SOURCE_H5_EXPT_FILE: os.PathLike,
+                SOURCE_H5_MONO_FILE: os.PathLike,
+                XXX_FILE: os.PathLike,
+                HKLS_EQUIV: tuple,
+                DATASET_NAME: str,
+                OUTPUT_IMG_DIR: os.PathLike,
+                NUMPY_SAVED_FILES_DIR: os.PathLike,
+                REMOVE_DUPS = True) -> None:
     
-    
-    # SOURCE_H5_EXPT_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\rh11_great_struct\dark_01__expt.h5"
-    # SOURCE_H5_MONO_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\rh11_great_struct\Rh1_mono.h5"
-    # XXX_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\rh11_great_struct\xxx.h5"
+    #----------------------------------------
+    #-----------DATA IMPORT/EXPORT-----------
+    #----------------------------------------
 
-    # HKLS_EQUIV = ((-1, -1, -1), 
-    #               (-1, 1, -1), 
-    #               (1, -1, 1))
-    
-    SOURCE_H5_EXPT_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\dark_01\dark_01__expt.h5"
-    SOURCE_H5_MONO_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\SNP_220K_mono.h5"
-    XXX_FILE = r"C:\Users\piotr\Documents\VS_Code\working_dirs\outgoing\dark_01\xxx.h5"
-
-    HKLS_EQUIV = ((-1, -1, -1),
-                (-1, 1, -1),
-                (1, -1, 1),
-                (-1, -1, 1),
-                (1, -1, -1),
-                (-1, 1, 1),
-                (1, 1, -1))
-    
-    name = 'snp'
-
-    OUTPUT_PNG_IMG_FILE_MONO = r'C:\Users\piotr\Documents\VS_Code\laue_prep\mono_' + name + '.png'
-    OUTPUT_PNG_IMG_FILE_EXPT = r'C:\Users\piotr\Documents\VS_Code\laue_prep\expt_' + name + '.png'
-    OUTPUT_PNG_IMG_FILE_MONO_ROT = r'C:\Users\piotr\Documents\VS_Code\laue_prep\mono_rotated_' + name + '.png'
-    NUMPY_SAVED_FILES_DIR = r'C:\Users\piotr\Documents\VS_Code\laue_prep\numpy_saves_' + name
-
-    if os.path.exists(NUMPY_SAVED_FILES_DIR):
+    #create empty dirs if they dont exist yet
+    if os.path.exists(NUMPY_SAVED_FILES_DIR) and os.path.exists(OUTPUT_IMG_DIR):
         pass
+    elif os.path.exists(NUMPY_SAVED_FILES_DIR):
+        os.mkdir(OUTPUT_IMG_DIR)
+    elif os.path.exists(OUTPUT_IMG_DIR):
+        os.mkdir(NUMPY_SAVED_FILES_DIR)
     else:
         os.mkdir(NUMPY_SAVED_FILES_DIR)
+        os.mkdir(OUTPUT_IMG_DIR)
 
-    #check if the data has been exported to numpy binary already, and if so, load it from there to save time
+    #check if the mono data has been exported to numpy binary already, and if so, load it from there to save time
     np_mono_vec_file = os.path.join(NUMPY_SAVED_FILES_DIR, 'mono_vecs.npy')
     np_mono_ints_file = os.path.join(NUMPY_SAVED_FILES_DIR, 'mono_ints.npy')
     if os.path.exists(np_mono_vec_file) and os.path.exists(np_mono_ints_file):
@@ -178,11 +168,11 @@ if __name__ == '__main__':
         ints_mono = np.load(np_mono_ints_file)
     else:
         vecs_mono, ints_mono = import_h5mono_to_nparr(SOURCE_H5_MONO_FILE)
-        vecs_mono, ints_mono = fill_mono_symmetry_equivs(vecs_mono, ints_mono, HKLS_EQUIV)
+        vecs_mono, ints_mono = fill_mono_symmetry_equivs(vecs_mono, ints_mono, HKLS_EQUIV, remove_dups = REMOVE_DUPS)
         np.save(np_mono_vec_file, vecs_mono)
         np.save(np_mono_ints_file, ints_mono)
 
-    #same for expt data
+    #same as above, check if np exports already exists for expt files
     np_expt_vec_file = os.path.join(NUMPY_SAVED_FILES_DIR, 'expt_vecs.npy')
     np_expt_ints_file = os.path.join(NUMPY_SAVED_FILES_DIR, 'expt_ints.npy')
     if os.path.exists(np_expt_vec_file) and os.path.exists(np_expt_ints_file):
@@ -193,28 +183,61 @@ if __name__ == '__main__':
         np.save(np_expt_vec_file, vecs_expt)
         np.save(np_expt_ints_file, ints_expt)
     
-
-    #import rotation matrix
-    rotM = import_xxx_to_rotM(XXX_FILE)
+    #load OR import and save rotation matrix if it doesnt exist already
+    np_rotM_file = os.path.join(NUMPY_SAVED_FILES_DIR, 'rotation_M_solution.npy')
+    if os.path.exists(np_rotM_file):
+        rotM_arr = np.load(np_rotM_file)
+        rotM = R.from_matrix(rotM_arr)
+    else:
+        rotM = import_xxx_to_rotM(XXX_FILE)
+        np.save(np_rotM_file, rotM.as_matrix())
     #rotate the existing vectors by the imported matrix
     vecs_mono_rotated = rotate_sphere(vecs_mono, rotM.as_matrix())
 
+    #----------------------------------------
+    #-----------VISULALIZATION---------------
+    #----------------------------------------
+
+
+    output_png_img_file_mono = os.path.join(OUTPUT_IMG_DIR, 'mono_' + DATASET_NAME + '.png')
+    output_png_img_file_expt = os.path.join(OUTPUT_IMG_DIR, 'expt_' + DATASET_NAME + '.png')
+    output_png_img_file_mono_solved = os.path.join(OUTPUT_IMG_DIR, '_mono_solved_' + DATASET_NAME + '.png')
+
     #draw all spheres
-    draw_sphere(vecs_mono, OUTPUT_PNG_IMG_FILE_MONO)
-    draw_sphere(vecs_expt, OUTPUT_PNG_IMG_FILE_EXPT)
-    draw_sphere(vecs_mono_rotated, OUTPUT_PNG_IMG_FILE_MONO_ROT)
+    draw_sphere(vecs_mono, output_png_img_file_mono)
+    draw_sphere(vecs_expt, output_png_img_file_expt)
+    draw_sphere(vecs_mono_rotated, output_png_img_file_mono_solved)
 
-    #====================================
-    #TESTING
-    # vecs_expt,vecs_mono = import_xxx_vec_data(XXX_FILE)
+if __name__ == '__main__':
 
-    # TEST_PATH_1 = r'C:\Users\piotr\Documents\VS_Code\laue_prep\xxx_expt.png'
-    # TEST_PATH_2 = r'C:\Users\piotr\Documents\VS_Code\laue_prep\xxx_mono.png'
-    # TEST_PATH_3 = r'C:\Users\piotr\Documents\VS_Code\laue_prep\xxx_expt_rotated.png'
+    SOURCE_H5_EXPT_FILE = r"C:\VS_CODE\outgoing\dark_01\dark_01__expt.h5"
+    SOURCE_H5_MONO_FILE = r"C:\VS_CODE\outgoing\dark_01\dark_01__mono.h5"
+    XXX_FILE = r"C:\VS_CODE\outgoing\dark_01\xxx.h5"
 
-    # draw_sphere(vecs_mono, TEST_PATH_1)
-    # draw_sphere(vecs_expt, TEST_PATH_2)
-    # vecs_expt_rotated = rotate_sphere(vecs_mono, rotM.as_matrix())
-    # draw_sphere(vecs_expt_rotated, TEST_PATH_3)
+    # HKLS_EQUIV = ((-1, -1, -1), 
+    #               (-1, 1, -1), 
+    #               (1, -1, 1))
 
-    pass
+    HKLS_EQUIV = ((-1, -1, -1),
+                (-1, 1, -1),
+                (1, -1, 1),
+                (-1, -1, 1),
+                (1, -1, -1),
+                (-1, 1, 1),
+                (1, 1, -1))
+    
+    DATASET_NAME = 'snp'
+
+    OUTPUT_IMG_DIR = r'graphs_' + DATASET_NAME
+    NUMPY_SAVED_FILES_DIR = r'numpy_saves_' + DATASET_NAME
+
+    REMOVE_DUPS = False
+
+    main_export(SOURCE_H5_EXPT_FILE,
+                SOURCE_H5_MONO_FILE,
+                XXX_FILE,
+                HKLS_EQUIV,
+                DATASET_NAME,
+                OUTPUT_IMG_DIR,
+                NUMPY_SAVED_FILES_DIR,
+                REMOVE_DUPS)
